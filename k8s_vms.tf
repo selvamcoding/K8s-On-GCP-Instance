@@ -38,6 +38,13 @@ module "k8s_worker" {
   zone           = data.google_compute_zones.available.names[count.index % length(data.google_compute_zones.available.names)]
 }
 
+resource "google_compute_instance_group" "master_groups" {
+  count     = local.master_count
+  name      = "${var.cluster_name}-master-n${count.index + 1}"
+  zone      = module.k8s_master[count.index].zone
+  instances = [module.k8s_master[count.index].id]
+}
+
 resource "null_resource" "create_venv" {
   provisioner "local-exec" {
     command = <<EOT
@@ -62,7 +69,7 @@ resource "null_resource" "add_etcd" {
 }
 
 resource "null_resource" "add_master" {
-  depends_on = [module.k8s_master, null_resource.add_etcd]
+  depends_on = [module.k8s_master, null_resource.create_venv, null_resource.add_etcd]
 
   count = local.master_count
   provisioner "local-exec" {
@@ -71,7 +78,7 @@ resource "null_resource" "add_master" {
 }
 
 resource "null_resource" "add_worker" {
-  depends_on = [module.k8s_worker, null_resource.add_master]
+  depends_on = [module.k8s_worker, null_resource.create_venv, null_resource.add_etcd, null_resource.add_master]
 
   count = local.worker_count
   provisioner "local-exec" {
@@ -80,7 +87,7 @@ resource "null_resource" "add_worker" {
 }
 
 resource "null_resource" "group_inventory" {
-  depends_on = [null_resource.add_worker]
+  depends_on = [null_resource.create_venv, null_resource.add_worker]
 
   provisioner "local-exec" {
     command = "${var.cluster_name}/bin/python3 Scripts/group_inventory.py ${var.cluster_name}"
@@ -99,7 +106,9 @@ resource "null_resource" "clone_kubespray" {
       cd kubespray
       cp -rfp inventory/sample inventory/mycluster
       cp ../cluster_inventory.yml inventory/mycluster/hosts.yaml
+      sed -i -e 's/^download_run_once: false/download_run_once: true/' roles/download/defaults/main.yml
       ../bin/ansible-playbook -i inventory/mycluster/hosts.yaml -b -v -f 15 -T 180 cluster.yml 2>&1 | tee k8s_setup.logs
+      ../bin/ansible -i inventory/mycluster/hosts.yaml kube_control_plane -m copy -a 'src=/usr/local/bin/kubectl dest=/bin/kubectl remote_src=True mode=0755' -b -e "ansible_ssh_user=${var.ansible_ssh_user}"
     EOT
   }
 }
