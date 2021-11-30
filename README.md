@@ -39,7 +39,7 @@ The bottom line, if any node's count value is >=3, it will be created as per the
 
 Update the values on the [k8s_cluster.tfvars](k8s_cluster.tfvars) file based on your requirements.
 
-#### Instance Group:
+#### Instance Group
 If the master nodes count >0, the instance groups will be created for the nodes, So that the LB can be created later to distribute the API requests across master nodes.
 
 #### Run Terraform command
