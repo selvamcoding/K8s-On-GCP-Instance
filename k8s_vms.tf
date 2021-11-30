@@ -1,5 +1,5 @@
 locals {
-  etcd_count = var.etcd_count == 1 || var.etcd_count == 2 ? 3 : var.etcd_count
+  etcd_count   = var.etcd_count == 1 || var.etcd_count == 2 ? 3 : var.etcd_count
   master_count = var.etcd_count == 0 && (var.master_count == 1 || var.master_count == 2) ? 3 : var.master_count == 1 ? 2 : var.master_count
   worker_count = var.etcd_count == 0 && var.master_count == 0 && var.worker_count < 3 ? 3 : var.worker_count == 0 ? 1 : var.worker_count
 }
@@ -9,33 +9,33 @@ data "google_compute_zones" "available" {
 }
 
 module "k8s_etcd" {
-  source = "./modules/gcp_vm_instance"
-  count = local.etcd_count
-  name = "${var.cluster_name}-etcd-n${count.index + 1}"
-  machine_type = var.etcd_machine_type
+  source         = "./modules/gcp_vm_instance"
+  count          = local.etcd_count
+  name           = "${var.cluster_name}-etcd-n${count.index + 1}"
+  machine_type   = var.etcd_machine_type
   boot_disk_size = var.etcd_boot_disk_size
-  region = var.region
-  zone = data.google_compute_zones.available.names[count.index % length(data.google_compute_zones.available.names)]
+  region         = var.region
+  zone           = data.google_compute_zones.available.names[count.index % length(data.google_compute_zones.available.names)]
 }
 
 module "k8s_master" {
-  source = "./modules/gcp_vm_instance"
-  count = local.master_count
-  name = "${var.cluster_name}-master-n${count.index + 1}"
-  machine_type = var.master_machine_type
+  source         = "./modules/gcp_vm_instance"
+  count          = local.master_count
+  name           = "${var.cluster_name}-master-n${count.index + 1}"
+  machine_type   = var.master_machine_type
   boot_disk_size = var.master_boot_disk_size
-  region = var.region
-  zone = data.google_compute_zones.available.names[count.index % length(data.google_compute_zones.available.names)]
+  region         = var.region
+  zone           = data.google_compute_zones.available.names[count.index % length(data.google_compute_zones.available.names)]
 }
 
 module "k8s_worker" {
-  source = "./modules/gcp_vm_instance"
-  count = local.worker_count
-  name = "${var.cluster_name}-worker-n${count.index + 1}"
-  machine_type = var.worker_machine_type
+  source         = "./modules/gcp_vm_instance"
+  count          = local.worker_count
+  name           = "${var.cluster_name}-worker-n${count.index + 1}"
+  machine_type   = var.worker_machine_type
   boot_disk_size = var.worker_boot_disk_size
-  region = var.region
-  zone = data.google_compute_zones.available.names[count.index % length(data.google_compute_zones.available.names)]
+  region         = var.region
+  zone           = data.google_compute_zones.available.names[count.index % length(data.google_compute_zones.available.names)]
 }
 
 resource "null_resource" "create_venv" {
@@ -53,7 +53,7 @@ resource "null_resource" "create_venv" {
 }
 
 resource "null_resource" "add_etcd" {
-  depends_on = [module.k8s_etcd,null_resource.create_venv]
+  depends_on = [module.k8s_etcd, null_resource.create_venv]
 
   count = local.etcd_count
   provisioner "local-exec" {
@@ -62,7 +62,7 @@ resource "null_resource" "add_etcd" {
 }
 
 resource "null_resource" "add_master" {
-  depends_on = [module.k8s_master,null_resource.add_etcd]
+  depends_on = [module.k8s_master, null_resource.add_etcd]
 
   count = local.master_count
   provisioner "local-exec" {
@@ -71,7 +71,7 @@ resource "null_resource" "add_master" {
 }
 
 resource "null_resource" "add_worker" {
-  depends_on = [module.k8s_worker,null_resource.add_master]
+  depends_on = [module.k8s_worker, null_resource.add_master]
 
   count = local.worker_count
   provisioner "local-exec" {
